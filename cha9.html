@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evidence docházky</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px 20px 100px 340px; /* Levý prostor pro fixní kalendář */
+        }
+
+        @media (max-width: 950px) {
+            body {
+                padding: 20px 20px 100px 20px;
+            }
+            .sidebar-calendar-box {
+                position: relative !important;
+                top: 0 !important;
+                left: 0 !important;
+                margin-bottom: 25px;
+                width: 100% !important;
+            }
+        }
+
+        /* Fixní panel vlevo pro kalendář a čas */
+        .sidebar-calendar-box {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 290px;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            z-index: 1000;
+        }
+
+        .calendar-header {
+            text-align: center;
+            font-weight: 700;
+            color: #2c3e50;
+            font-size: 1rem;
+            margin-bottom: 12px;
+            text-transform: capitalize;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            text-align: center;
+        }
+
+        .calendar-day-head {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #a0aec0;
+            padding-bottom: 4px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            border-radius: 50%;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.15s, color 0.15s;
+        }
+
+        /* Víkendy - neaktivní */
+        .calendar-day.weekend {
+            color: #cbd5e0;
+            cursor: not-allowed;
+            background-color: #f7fafc;
+        }
+
+        /* Pracovní dny - klikatelné */
+        .calendar-day.workday {
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .calendar-day.workday:hover {
+            background-color: #ebf8ff;
+            color: #3182ce;
+        }
+
+        /* Dnešní aktuální den */
+        .calendar-day.today {
+            border: 2px solid #3182ce;
+            font-weight: 700;
+        }
+
+        /* Vybraný den pro zápis */
+        .calendar-day.selected {
+            background-color: #3182ce !important;
+            color: #ffffff !important;
+            font-weight: 700;
+        }
+
+        .calendar-day.empty {
+            cursor: default;
+        }
+
+        /* Blok pro živý přesný čas */
+        .live-clock-box {
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 1px dashed #e2e8f0;
+            text-align: center;
+        }
+
+        .live-clock-title {
+            font-size: 0.75rem;
+            color: #718096;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .live-clock-time {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #2b6cb0;
+            font-family: 'Courier New', Courier, monospace;
+            margin-top: 2px;
+        }
+
+        /* Hlavní rozvržení – dva sloupce vpravo od kalendáře */
+        .layout {
+            display: flex;
+            gap: 30px;
+            width: 100%;
+            max-width: 1100px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid #f0f0f0;
+        }
+
+        .card.form-card {
+            flex: 1;
+            min-width: 280px;
+            max-width: 350px;
+        }
+
+        .card.table-card {
+            flex: 2;
+            min-width: 480px;
+            overflow-x: auto;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            text-align: center;
+        }
+
+        .selected-date-badge {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #4a5568;
+            background-color: #edf2f7;
+            padding: 6px 12px;
+            border-radius: 20px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+
+        .input-group input[type="time"] {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 1rem;
+            color: #2d3748;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            outline: none;
+            background-color: #fafafa;
+        }
+
+        .input-group input[type="time"]:focus {
+            border-color: #3182ce;
+            background-color: #ffffff;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background-color: #3182ce;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn-submit:hover {
+            background-color: #2b6cb0;
+        }
+
+        .btn-submit:active {
+            transform: scale(0.99);
+        }
+
+        .result-preview {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+            display: none;
+        }
+
+        .result-preview.success {
+            background-color: #ebf8ff;
+            border: 1px solid #bee3f8;
+            color: #2b6cb0;
+        }
+
+        .result-preview.error {
+            background-color: #fff5f5;
+            border: 1px solid #fed7d7;
+            color: #c53030;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 10px 12px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: #f7fafc;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .empty-row {
+            text-align: center;
+            color: #a0aec0;
+            font-style: italic;
+        }
+
+        tr.weekly-summary-row {
+            background-color: #f8fafc;
+            font-weight: 700;
+            border-top: 2px solid #cbd5e0;
+            border-bottom: 2px solid #cbd5e0;
+        }
+
+        tr.weekly-summary-row td {
+            padding: 12px;
+        }
+
+        .summary-text-red {
+            color: #e53e3e;
+        }
+
+        .summary-text-green {
+            color: #38a169;
+        }
+
+        .btn-delete-row {
+            background: none;
+            border: none;
+            color: #e53e3e;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            line-height: 1;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .btn-delete-row:hover {
+            background-color: #fff5f5;
+            color: #c53030;
+        }
+
+        .btn-clear {
+            margin-top: 15px;
+            background: none;
+            border: none;
+            color: #e53e3e;
+            font-size: 0.85rem;
+            cursor: pointer;
+            text-decoration: underline;
+            width: 100%;
+            text-align: right;
+        }
+
+        .remaining-hours-box {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            background-color: #ffffff;
+            border: 2px solid #e53e3e;
+            border-radius: 12px;
+            padding: 15px 20px;
+            box-shadow: 0 4px 15px rgba(229, 62, 62, 0.2);
+            text-align: right;
+            z-index: 1000;
+        }
+
+        .remaining-hours-box .label {
+            font-size: 0.85rem;
+            color: #718096;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .remaining-hours-box .value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #e53e3e;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Panel vlevo: Kalendář a Přesný Čas -->
+    <div class="sidebar-calendar-box">
+        <div class="calendar-header" id="calendarMonthTitle">Měsíc</div>
+        <div class="calendar-grid" id="calendarGrid">
+            <!-- Dny v týdnu a dny v měsíci se vygenerují skriptem -->
+        </div>
+
+        <div class="live-clock-box">
+            <div class="live-clock-title">Aktuální přesný čas</div>
+            <div class="live-clock-time" id="liveClockDisplay">00:00:00</div>
+        </div>
+    </div>
+
+    <div class="layout">
+        <!-- Levý sloupec: Formulář -->
+        <div class="card form-card">
+            <h2>Zadání docházky</h2>
+            
+            <div class="selected-date-badge" id="selectedDateBadge">
+                Vybrané datum: --
+            </div>
+
+            <form id="attendanceForm">
+                <div class="input-group">
+                    <label for="prichod">Příchod</label>
+                    <input type="time" id="prichod" class="time-input">
+                </div>
+
+                <div class="input-group">
+                    <label for="odchod-obed">Odchod na oběd</label>
+                    <input type="time" id="odchod-obed" class="time-input" value="12:00">
+                </div>
+
+                <div class="input-group">
+                    <label for="prichod-obed">Příchod z oběda</label>
+                    <input type="time" id="prichod-obed" class="time-input" value="12:30">
+                </div>
+
+                <div class="input-group">
+                    <label for="odchod">Odchod</label>
+                    <input type="time" id="odchod" class="time-input">
+                </div>
+
+                <button type="submit" class="btn-submit">Uložit</button>
+            </form>
+
+            <div id="resultPreview" class="result-preview"></div>
+        </div>
+
+        <!-- Pravý sloupec: Přehled a výsledky -->
+        <div class="card table-card">
+            <h2>Přehled odpracované doby</h2>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Příchod</th>
+                        <th>Oběd</th>
+                        <th>Odchod</th>
+                        <th>Odpracováno</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="logTableBody">
+                    <tr id="emptyRow">
+                        <td colspan="6" class="empty-row">Zatím žádné záznamy</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <button class="btn-clear" onclick="clearHistory()">Vymazat historii</button>
+        </div>
+    </div>
+
+    <!-- Okénko v dolním pravém rohu -->
+    <div class="remaining-hours-box">
+        <div class="label" id="monthLabel">Zbývá v tomto měsíci:</div>
+        <div class="value" id="remainingHoursValue">0 hod 0 min</div>
+    </div>
+
+    <script>
+        const preview = document.getElementById('resultPreview');
+        const tableBody = document.getElementById('logTableBody');
+        const form = document.getElementById('attendanceForm');
+        const calendarGrid = document.getElementById('calendarGrid');
+        const calendarMonthTitle = document.getElementById('calendarMonthTitle');
+        const selectedDateBadge = document.getElementById('selectedDateBadge');
+        const liveClockDisplay = document.getElementById('liveClockDisplay');
+
+        // Globální proměnná uchovávající vybrané datum pro zápis
+        let selectedDateObj = new Date();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initCalendar();
+            startLiveClock();
+            loadHistory();
+            updateRemainingHours();
+        });
+
+        // --- 1. SPUŠTĚNÍ PŘESNÉHO ČASU ---
+        function startLiveClock() {
+            function updateClock() {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                liveClockDisplay.textContent = `${hours}:${minutes}:${seconds}`;
+            }
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+
+        // --- 2. GENERÁTOR KALENDÁŘE PRO AKTUÁLNÍ MĚSÍC ---
+        function initCalendar() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth(); // 0-11
+
+            const monthNames = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
+            calendarMonthTitle.textContent = `${monthNames[month]} ${year}`;
+
+            calendarGrid.innerHTML = '';
+
+            // Hlavička dnů v týdnu
+            const dayHeaders = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
+            dayHeaders.forEach(dh => {
+                const headDiv = document.createElement('div');
+                headDiv.className = 'calendar-day-head';
+                headDiv.textContent = dh;
+                calendarGrid.appendChild(headDiv);
+            });
+
+            // První den měsíce a počet dnů v měsíci
+            const firstDayOfMonth = new Date(year, month, 1);
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            // Zjištění offsetu (Pondělí = 0 ... Neděle = 6)
+            let startDayOffset = firstDayOfMonth.getDay() - 1;
+            if (startDayOffset === -1) startDayOffset = 6; // Neděle
+
+            // Prázdná políčka před 1. dnem v měsíci
+            for (let i = 0; i < startDayOffset; i++) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'calendar-day empty';
+                calendarGrid.appendChild(emptyDiv);
+            }
+
+            // Vygenerování dnů v měsíci
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateObj = new Date(year, month, day);
+                const dayOfWeek = dateObj.getDay(); // 0 = Ne, 6 = So
+                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+                const isToday = (day === today.getDate() && month === today.getMonth() && year === today.getFullYear());
+
+                const dayDiv = document.createElement('div');
+                dayDiv.classList.add('calendar-day');
+                dayDiv.textContent = day;
+
+                if (isToday) {
+                    dayDiv.classList.add('today');
+                }
+
+                if (isWeekend) {
+                    dayDiv.classList.add('weekend');
+                } else {
+                    dayDiv.classList.add('workday');
+                    
+                    // Nastavit výchozí vybraný den na dnešek (pokud je všední den), jinak na 1. pracovní den
+                    if (isToday || (today.getDay() === 0 || today.getDay() === 6 ? day === 1 : false)) {
+                        setSelectedDay(dateObj, dayDiv);
+                    }
+
+                    dayDiv.addEventListener('click', () => {
+                        setSelectedDay(dateObj, dayDiv);
+                    });
+                }
+
+                calendarGrid.appendChild(dayDiv);
+            }
+        }
+
+        function setSelectedDay(dateObj, element) {
+            selectedDateObj = dateObj;
+
+            // Odebrat třídu selected ze všech dnů
+            document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
+            element.classList.add('selected');
+
+            // Aktualizace popisku vybraného data ve formuláři
+            const d = dateObj.getDate();
+            const m = dateObj.getMonth() + 1;
+            const y = dateObj.getFullYear();
+            selectedDateBadge.textContent = `Vybrané datum zápisu: ${d}. ${m}. ${y}`;
+        }
+
+        // --- 3. FORMULÁŘ A VÝPOČET ---
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            calculateAndSave();
+        });
+
+        function timeToMinutes(timeStr) {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+
+        function minutesToHoursMinutes(totalMinutes) {
+            const isNegative = totalMinutes < 0;
+            const absMinutes = Math.abs(totalMinutes);
+            const hours = Math.floor(absMinutes / 60);
+            const minutes = absMinutes % 60;
+            return `${isNegative ? '-' : ''}${hours} hod ${minutes} min`;
+        }
+
+        function getWorkingDaysInMonth(year, month) {
+            let workingDays = 0;
+            const date = new Date(year, month, 1);
+            while (date.getMonth() === month) {
+                const dayOfWeek = date.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    workingDays++;
+                }
+                date.setDate(date.getDate() + 1);
+            }
+            return workingDays;
+        }
+
+        function calculateAndSave() {
+            const prichod = document.getElementById('prichod').value;
+            const odchodObed = document.getElementById('odchod-obed').value;
+            const prichodObed = document.getElementById('prichod-obed').value;
+            const odchod = document.getElementById('odchod').value;
+
+            if (!prichod || !odchodObed || !prichodObed || !odchod) {
+                preview.className = 'result-preview error';
+                preview.style.display = 'block';
+                preview.textContent = 'Vyplňte prosím všechny 4 časové údaje!';
+                return;
+            }
+
+            const p1 = timeToMinutes(prichod);
+            const o1 = timeToMinutes(odchodObed);
+            const p2 = timeToMinutes(prichodObed);
+            const o2 = timeToMinutes(odchod);
+
+            const rano = o1 - p1;
+            const odpoledne = o2 - p2;
+            const celkemMinuty = rano + odpoledne;
+
+            if (celkemMinuty < 0 || o1 < p1 || o2 < p2) {
+                preview.className = 'result-preview error';
+                preview.style.display = 'block';
+                preview.textContent = 'Chyba: Zadané časy na sebe nenavazují!';
+                return;
+            }
+
+            const odpracovanyCas = minutesToHoursMinutes(celkemMinuty);
+            
+            // Načtení zvoleného data z kalendáře
+            const year = selectedDateObj.getFullYear();
+            const month = selectedDateObj.getMonth();
+            const day = selectedDateObj.getDate();
+
+            const formattedDate = `${day}. ${month + 1}. ${year}`;
+            const rawIsoDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+            preview.className = 'result-preview success';
+            preview.style.display = 'block';
+            preview.textContent = `Uloženo pro ${formattedDate}! Odpracováno: ${odpracovanyCas}`;
+
+            saveRecord({
+                id: 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                date: formattedDate,
+                rawDate: rawIsoDate,
+                prichod: prichod,
+                obed: `${odchodObed}–${prichodObed}`,
+                odchod: odchod,
+                time: odpracovanyCas,
+                minutes: celkemMinuty,
+                year: year,
+                month: month
+            });
+
+            document.getElementById('prichod').value = '';
+            document.getElementById('odchod').value = '';
+            document.getElementById('odchod-obed').value = '12:00';
+            document.getElementById('prichod-obed').value = '12:30';
+        }
+
+        function saveRecord(record) {
+            const history = JSON.parse(localStorage.getItem('dochazkaHistory') || '[]');
+            history.push(record);
+            localStorage.setItem('dochazkaHistory', JSON.stringify(history));
+            renderHistory();
+            updateRemainingHours();
+        }
+
+        function loadHistory() {
+            renderHistory();
+        }
+
+        function getSortableDate(item) {
+            if (item.rawDate) return item.rawDate;
+            const parts = item.date.split('.').map(p => p.trim());
+            if (parts.length === 3) {
+                const d = parts[0].padStart(2, '0');
+                const m = parts[1].padStart(2, '0');
+                const y = parts[2];
+                return `${y}-${m}-${d}`;
+            }
+            return item.date;
+        }
+
+        function getWeekKey(dateObj) {
+            const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+        }
+
+        function deleteSingleRow(id) {
+            let history = JSON.parse(localStorage.getItem('dochazkaHistory') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('dochazkaHistory', JSON.stringify(history));
+            renderHistory();
+            updateRemainingHours();
+        }
+
+        function renderHistory() {
+            let history = JSON.parse(localStorage.getItem('dochazkaHistory') || '[]');
+            
+            if (history.length === 0) {
+                tableBody.innerHTML = '<tr id="emptyRow"><td colspan="6" class="empty-row">Zatím žádné záznamy</td></tr>';
+                return;
+            }
+
+            let updated = false;
+            history = history.map((item, idx) => {
+                if (!item.id) {
+                    item.id = 'legacy_' + idx + '_' + Date.now();
+                    updated = true;
+                }
+                return item;
+            });
+            if (updated) {
+                localStorage.setItem('dochazkaHistory', JSON.stringify(history));
+            }
+
+            history.sort((a, b) => getSortableDate(a).localeCompare(getSortableDate(b)));
+
+            const weeksMap = new Map();
+
+            history.forEach(item => {
+                const isoStr = getSortableDate(item);
+                const [y, m, d] = isoStr.split('-').map(Number);
+                const dateObj = new Date(y, m - 1, d);
+                const weekKey = getWeekKey(dateObj);
+
+                if (!weeksMap.has(weekKey)) {
+                    weeksMap.set(weekKey, []);
+                }
+                weeksMap.get(weekKey).push({ item, dateObj, isoStr });
+            });
+
+            let htmlRows = '';
+
+            weeksMap.forEach((recordsInWeek) => {
+                let totalMinutesWeek = 0;
+                const uniqueWorkingDays = new Set();
+
+                recordsInWeek.forEach(({ item, dateObj }) => {
+                    totalMinutesWeek += (item.minutes || 0);
+
+                    const dayOfWeek = dateObj.getDay();
+                    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                        uniqueWorkingDays.add(getSortableDate(item));
+                    }
+
+                    htmlRows += `
+                        <tr>
+                            <td>${item.date}</td>
+                            <td>${item.prichod || '-'}</td>
+                            <td>${item.obed || '-'}</td>
+                            <td>${item.odchod || '-'}</td>
+                            <td><strong>${item.time}</strong></td>
+                            <td>
+                                <button class="btn-delete-row" onclick="deleteSingleRow('${item.id}')" title="Smazat pouze tento řádek">✕</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                const workingDaysCount = uniqueWorkingDays.size;
+                const requiredMinutesWeek = workingDaysCount * 8 * 60;
+
+                const isShort = totalMinutesWeek < requiredMinutesWeek;
+                const textColorClass = isShort ? 'summary-text-red' : 'summary-text-green';
+
+                const formattedWeekSum = minutesToHoursMinutes(totalMinutesWeek);
+
+                htmlRows += `
+                    <tr class="weekly-summary-row">
+                        <td colspan="4" style="text-align: right;">Celkem za týden (${workingDaysCount} prac. ${workingDaysCount === 1 ? 'den' : (workingDaysCount >= 2 && workingDaysCount <= 4 ? 'dny' : 'dní')} × 8h = ${workingDaysCount * 8}h):</td>
+                        <td class="${textColorClass}">${formattedWeekSum}</td>
+                        <td></td>
+                    </tr>
+                `;
+            });
+
+            tableBody.innerHTML = htmlRows;
+        }
+
+        function updateRemainingHours() {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth();
+
+            const workingDays = getWorkingDaysInMonth(currentYear, currentMonth);
+            const totalRequiredMinutes = workingDays * 8 * 60;
+
+            const history = JSON.parse(localStorage.getItem('dochazkaHistory') || '[]');
+            let workedMinutesThisMonth = 0;
+
+            history.forEach(item => {
+                const dateParts = item.date.split('.').map(p => parseInt(p.trim()));
+                if (dateParts.length === 3) {
+                    const itemMonth = dateParts[1] - 1;
+                    const itemYear = dateParts[2];
+                    if (itemYear === currentYear && itemMonth === currentMonth) {
+                        workedMinutesThisMonth += (item.minutes || 0);
+                    }
+                }
+            });
+
+            const remainingMinutes = totalRequiredMinutes - workedMinutesThisMonth;
+            
+            const monthNames = ["leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec"];
+            document.getElementById('monthLabel').textContent = `Zbývá v měsíci (${monthNames[currentMonth]}):`;
+            document.getElementById('remainingHoursValue').textContent = minutesToHoursMinutes(remainingMinutes);
+        }
+
+        function clearHistory() {
+            if (confirm('Opravdu chcete vymazat celou historii?')) {
+                localStorage.removeItem('dochazkaHistory');
+                renderHistory();
+                updateRemainingHours();
+                preview.style.display = 'none';
+            }
+        }
+    </script>
+
+</body>
+</html>
